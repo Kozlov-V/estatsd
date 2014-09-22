@@ -23,18 +23,19 @@
                 flush_timer,        % TRef of interval timer
                 graphite_host,      % graphite server host
                 graphite_port,      % graphite server port
-                vm_metrics            % flag to enable sending VM metrics on flush
+                vm_metrics,            % flag to enable sending VM metrics on flush
+                host_mon
                }).
 
-start_link(FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics) ->
+start_link(FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics, HostMon) ->
     gen_server:start_link({local, ?MODULE}, 
                           ?MODULE, 
-                          [FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics], 
+                          [FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics, HostMon], 
                           []).
 
 %%
 
-init([FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics]) ->
+init([FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics, HostMon]) ->
     error_logger:info_msg("estatsd will flush stats to ~p:~w every ~wms\n", 
                           [ GraphiteHost, GraphitePort, FlushIntervalMs ]),
     ets:new(statsd, [named_table, set]),
@@ -47,7 +48,8 @@ init([FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics]) ->
                     flush_timer     = Tref,
                     graphite_host   = GraphiteHost,
                     graphite_port   = GraphitePort,
-                    vm_metrics        = VmMetrics
+                    vm_metrics      = VmMetrics,
+                    host_mon        = HostMon
                   },
     {ok, State}.
 
@@ -145,12 +147,12 @@ do_report(All, Gauges, State) ->
     case NumTimers + NumCounters + NumGauges + NumVmMetrics of
         0 -> nothing_to_report;
         NumStats ->
-            FinalMsg = [ MsgCounters,
-                         MsgTimers,
-                         MsgGauges,
-                         MsgVmMetrics,
+            FinalMsg = [[State#state.host_mon, MsgCounters],
+                        [State#state.host_mon, MsgTimers],
+                        [State#state.host_mon, MsgGauges],
+                        [State#state.host_mon, MsgVmMetrics],
                          %% Also graph the number of graphs we're graphing:
-                         "stats.num_stats ", num2str(NumStats), " ", TsStr, "\n"
+                         State#state.host_mon,"stats.num_stats ", num2str(NumStats), " ", TsStr, "\n"
                        ],
             send_to_graphite(FinalMsg, State)
     end.
