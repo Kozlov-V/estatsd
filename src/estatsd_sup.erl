@@ -12,6 +12,7 @@
 -define(GRAPHITE_HOST,  appvar(graphite_host,  "127.0.0.1")).
 -define(GRAPHITE_PORT,  appvar(graphite_port,  2003)).
 -define(VM_METRICS,     appvar(vm_metrics,  true)).
+-define(HOST_MON,     appvar(host_mon,  "all_hosts")).
 
 %% ===================================================================
 %% API functions
@@ -36,11 +37,11 @@ start_link(FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics) ->
 %% Supervisor callbacks
 %% ===================================================================
 
-init([FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics]) ->
+init([FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics, HostMon]) ->
     Children = [
         {estatsd_server, 
          {estatsd_server, start_link, 
-             [FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics]},
+             [FlushIntervalMs, GraphiteHost, GraphitePort, VmMetrics, HostMon]},
          permanent, 5000, worker, [estatsd_server]}
     ],
     {ok, { {one_for_one, 10000, 10}, Children} }.
